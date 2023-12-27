@@ -35,8 +35,8 @@ spec:
   kubeProxy:
     enabled: false
   kubeAPIServer:
-    maxRequestsInflight: 4096
-    maxMutatingRequestsInflight: 1024
+    maxRequestsInflight: 0
+    maxMutatingRequestsInflight: 0
     runtimeConfig:
       admissionregistration.k8s.io/v1beta1: "true"
   kubelet:
@@ -89,8 +89,8 @@ metadata:
   name: nodes-us-central1-a
 spec:
   machineType: n1-standard-2
-  maxSize: 1
-  minSize: 1
+  maxSize: 2
+  minSize: 2
   nodeLabels:
     cloud.google.com/metadata-proxy-ready: "true"
   role: Node

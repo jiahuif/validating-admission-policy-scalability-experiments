@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -51,22 +52,30 @@ func loadClientConfig() (*rest.Config, error) {
 	return rest.InClusterConfig()
 }
 
-func testClient() (kubernetes.Interface, error) {
+func testClient() (kubernetes.Interface, apiextensionsclientset.Interface, error) {
 	config, err := loadClientConfig()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	config.Burst = 1024 * 1024
 	config.QPS = float32(config.Burst)
-	return kubernetes.NewForConfig(config)
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+	extClient, err := apiextensionsclientset.NewForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+	return client, extClient, nil
 }
 
-func mustTestClient(t *testing.T) kubernetes.Interface {
-	client, err := testClient()
+func mustTestClient(t *testing.T) (kubernetes.Interface, apiextensionsclientset.Interface) {
+	client, extClient, err := testClient()
 	if err != nil {
 		t.Fatalf("fail to create client: %v", err)
 	}
-	return client
+	return client, extClient
 }
 
 func loadYAMLTestData[T any](name string) (T, error) {

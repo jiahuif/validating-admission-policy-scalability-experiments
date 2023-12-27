@@ -88,7 +88,7 @@ metadata:
     kops.k8s.io/cluster: simple.k8s.local
   name: nodes-us-central1-a
 spec:
-  machineType: e2-medium
+  machineType: n1-standard-2
   maxSize: 1
   minSize: 1
   nodeLabels:

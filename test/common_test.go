@@ -2,22 +2,29 @@ package test
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/rand"
 	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
 )
 
+const testLabel = "test-label"
+const resourceSuffix = ".test.example.com"
+
 type benchmark struct {
+	uniqueLabel string
+	Name        string
 	Concurrency int
 	Duration    time.Duration
 	Func        func(ctx context.Context, b *benchmark) error
@@ -81,11 +88,22 @@ func loadYAMLTestData[T any](name string) (T, error) {
 	return object, err
 }
 
-func randomResourceName(prefix, suffix string) string {
-	return fmt.Sprintf("%s%d%s", prefix, rand.Int(), suffix)
+func (b *benchmark) Label() string {
+	if b.uniqueLabel == "" {
+		b.uniqueLabel = fmt.Sprintf("%s-%s", b.Name, randId())
+	}
+	return b.uniqueLabel
 }
-func runConcurrentRequestsBenchmark(b *benchmark) (*benchmarkResult, error) {
-	rootCtx, cancelCause := context.WithCancelCause(context.Background())
+
+func (b *benchmark) SetRandomLabel(meta *metav1.ObjectMeta) {
+	if meta.Labels == nil {
+		meta.Labels = make(map[string]string)
+	}
+	meta.Labels["testLabel"] = b.Label()
+}
+
+func (b *benchmark) Run(ctx context.Context) (*benchmarkResult, error) {
+	rootCtx, cancelCause := context.WithCancelCause(ctx)
 	defer cancelCause(nil)
 	ctx, cancel := context.WithTimeout(context.Background(), b.Duration)
 	defer cancel()
@@ -123,4 +141,21 @@ func runConcurrentRequestsBenchmark(b *benchmark) (*benchmarkResult, error) {
 	elapsed := time.Now().Sub(startTime)
 	qps := (float64)(numRequests.Load()) / elapsed.Seconds()
 	return &benchmarkResult{qps: qps}, nil
+}
+
+func (b *benchmark) RandomResourceName() string {
+	return fmt.Sprintf("%s-%s%s", b.Name, randId(), resourceSuffix)
+}
+
+func (b *benchmark) LabelSelector() string {
+	return fmt.Sprintf("%s=%s", testLabel, b.Label())
+}
+
+func randId() string {
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
 }

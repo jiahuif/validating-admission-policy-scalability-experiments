@@ -1,0 +1,100 @@
+apiVersion: kops.k8s.io/v1alpha2
+kind: Cluster
+metadata:
+  name: simple.k8s.local
+spec:
+  api:
+    loadBalancer:
+      type: Public
+  authorization:
+    rbac: {}
+  channel: stable
+  cloudConfig: {}
+  cloudProvider: gce
+  configBase: gs://jhf-kubernetes-clusters/simple.k8s.local
+  etcdClusters:
+  - cpuRequest: 200m
+    etcdMembers:
+    - instanceGroup: control-plane-us-central1-a
+      name: a
+    manager:
+      backupRetentionDays: 90
+    memoryRequest: 100Mi
+    name: main
+  - cpuRequest: 100m
+    etcdMembers:
+    - instanceGroup: control-plane-us-central1-a
+      name: a
+    manager:
+      backupRetentionDays: 90
+    memoryRequest: 100Mi
+    name: events
+  iam:
+    allowContainerRegistry: true
+    legacy: false
+  kubeProxy:
+    enabled: false
+  kubeAPIServer:
+    maxRequestsInflight: 4096
+    maxMutatingRequestsInflight: 1024
+    runtimeConfig:
+      admissionregistration.k8s.io/v1beta1: "true"
+  kubelet:
+    anonymousAuth: false
+  kubernetesApiAccess:
+  - 0.0.0.0/0
+  - ::/0
+  kubernetesVersion: 1.29.0
+  networking:
+    cilium:
+      enableNodePort: true
+  nonMasqueradeCIDR: 100.64.0.0/10
+  project: jhf-gke-dev
+  sshAccess:
+  - 0.0.0.0/0
+  - ::/0
+  subnets:
+  - cidr: 10.0.16.0/20
+    name: us-central1
+    region: us-central1
+    type: Public
+  topology:
+    dns:
+      type: Private
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  labels:
+    kops.k8s.io/cluster: simple.k8s.local
+  name: control-plane-us-central1-a
+spec:
+  machineType: n1-standard-2
+  maxSize: 1
+  minSize: 1
+  role: Master
+  subnets:
+  - us-central1
+  zones:
+  - us-central1-a
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  labels:
+    kops.k8s.io/cluster: simple.k8s.local
+  name: nodes-us-central1-a
+spec:
+  machineType: e2-medium
+  maxSize: 1
+  minSize: 1
+  nodeLabels:
+    cloud.google.com/metadata-proxy-ready: "true"
+  role: Node
+  subnets:
+  - us-central1
+  zones:
+  - us-central1-a

@@ -35,6 +35,7 @@ func TestConcurrentPolicyCreation(t *testing.T) {
 					return err
 				},
 			}
+			b.SetRandomLabel(&policy.ObjectMeta)
 			r, err := b.Run(context.Background())
 			if err != nil {
 				t.Fatalf("fail to create: %v", err)

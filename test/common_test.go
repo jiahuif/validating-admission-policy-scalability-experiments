@@ -14,13 +14,15 @@ import (
 
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/flowcontrol"
 	"sigs.k8s.io/yaml"
 )
 
-const testLabel = "test-label"
+const testLabel = "name.scalability.experiments.test.example.com"
 const resourceSuffix = ".test.example.com"
 
 type benchmark struct {
@@ -52,30 +54,33 @@ func loadClientConfig() (*rest.Config, error) {
 	return rest.InClusterConfig()
 }
 
-func testClient() (kubernetes.Interface, apiextensionsclientset.Interface, error) {
+func testClient() (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error) {
 	config, err := loadClientConfig()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	config.Burst = 1024 * 1024
-	config.QPS = float32(config.Burst)
+	config.RateLimiter = flowcontrol.NewFakeAlwaysRateLimiter()
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	extClient, err := apiextensionsclientset.NewForConfig(config)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return client, extClient, nil
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return client, extClient, dynamicClient, nil
 }
 
-func mustTestClient(t *testing.T) (kubernetes.Interface, apiextensionsclientset.Interface) {
-	client, extClient, err := testClient()
+func mustTestClient(t *testing.T) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface) {
+	client, extClient, dynamicClient, err := testClient()
 	if err != nil {
 		t.Fatalf("fail to create client: %v", err)
 	}
-	return client, extClient
+	return client, extClient, dynamicClient
 }
 
 func loadYAMLTestData[T any](name string) (T, error) {
@@ -108,7 +113,7 @@ func (b *benchmark) SetRandomLabel(meta *metav1.ObjectMeta) {
 	if meta.Labels == nil {
 		meta.Labels = make(map[string]string)
 	}
-	meta.Labels["testLabel"] = b.Label()
+	meta.Labels[testLabel] = b.Label()
 }
 
 func (b *benchmark) Run(ctx context.Context) (*benchmarkResult, error) {

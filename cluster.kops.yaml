@@ -37,6 +37,8 @@ spec:
   kubeAPIServer:
     maxRequestsInflight: 0
     maxMutatingRequestsInflight: 0
+    featureGates:
+      ValidatingAdmissionPolicy: "true"
     runtimeConfig:
       admissionregistration.k8s.io/v1beta1: "true"
   kubelet:

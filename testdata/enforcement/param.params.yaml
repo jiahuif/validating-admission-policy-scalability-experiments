@@ -1,0 +1,7 @@
+apiVersion: policycreation.example.com/v1
+kind: Param
+metadata:
+  name: demo-params.policycreation.example.com
+spec:
+  allowedEnvironment: prod
+  maxReplicas: 10

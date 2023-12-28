@@ -19,7 +19,7 @@ func TestConcurrentPolicyCreation(t *testing.T) {
 			if err != nil {
 				t.Fatalf("fail to load test data: %v", err)
 			}
-			client, _ := mustTestClient(t)
+			client, _, _ := mustTestClient(t)
 			b := &benchmark{
 				Concurrency: C,
 				Duration:    time.Minute * 2,

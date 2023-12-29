@@ -2,7 +2,9 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -30,10 +32,31 @@ const namespace = "default"
 
 func TestPolicyEnforcement(t *testing.T) {
 	client, extclient, dynamicClient := mustTestClient(t)
-	b := &benchmark{Name: "policy-enforcement"}
+	b := &benchmark{
+		Name: "policy-enforcement",
+	}
 	err := policyEnforcementSetup(b, client, extclient, dynamicClient)
 	if err != nil {
 		t.Errorf("fail to setup: %v", err)
+	}
+	for C := 1; C <= 16; C *= 2 {
+		t.Run(fmt.Sprintf("enforcement-%d", C), func(t *testing.T) {
+			ctx := context.Background()
+			b := &benchmark{
+				Name:        b.Name,
+				Concurrency: C,
+				Duration:    time.Minute * 2,
+				Func: func(ctx context.Context, b *benchmark) error {
+					return nil
+				},
+			}
+			r, err := b.Run(ctx)
+			if err != nil {
+				t.Errorf("fail to benchmark: %v", err)
+			}
+			t.Logf("qps: %f", r.qps)
+			_ = dynamicClient.Resource(objectGVR).Namespace(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: b.LabelSelector()})
+		})
 	}
 	err = policyEnforcementTeardown(b, client, extclient, dynamicClient)
 	if err != nil {

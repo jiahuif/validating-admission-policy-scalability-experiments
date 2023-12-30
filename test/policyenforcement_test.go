@@ -2,7 +2,10 @@ package test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -30,10 +33,40 @@ const namespace = "default"
 
 func TestPolicyEnforcement(t *testing.T) {
 	client, extclient, dynamicClient := mustTestClient(t)
-	b := &benchmark{Name: "policy-enforcement"}
+	b := &benchmark{
+		Name: "policy-enforcement",
+	}
 	err := policyEnforcementSetup(b, client, extclient, dynamicClient)
 	if err != nil {
-		t.Errorf("fail to setup: %v", err)
+		t.Fatalf("fail to setup: %v", err)
+	}
+	objectTemplate, err := loadYAMLTestData[unstructured.Unstructured]("enforcement/object.objects.yaml")
+	for C := 1; C <= 16; C *= 2 {
+		t.Run(fmt.Sprintf("enforcement-%d", C), func(t *testing.T) {
+			ctx := context.Background()
+			b := &benchmark{
+				Name:        b.Name,
+				Concurrency: C,
+				Duration:    time.Minute * 2,
+				Func: func(ctx context.Context, b *benchmark) error {
+					object := objectTemplate.DeepCopy()
+					object.Object["metadata"].(map[string]any)["name"] = b.RandomResourceName()
+					object.Object["metadata"].(map[string]any)["labels"].(map[string]any)[testLabel] = b.Label()
+					_, err = dynamicClient.Resource(objectGVR).Namespace(namespace).Create(ctx, object, metav1.CreateOptions{})
+					// ignore timeout for benchmark
+					if errors.Is(err, context.DeadlineExceeded) {
+						return nil
+					}
+					return err
+				},
+			}
+			r, err := b.Run(ctx)
+			if err != nil {
+				t.Fatalf("fail to benchmark: %v", err)
+			}
+			t.Logf("qps: %f", r.qps)
+			_ = dynamicClient.Resource(objectGVR).Namespace(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: b.LabelSelector()})
+		})
 	}
 	err = policyEnforcementTeardown(b, client, extclient, dynamicClient)
 	if err != nil {
@@ -67,6 +100,9 @@ func policyEnforcementSetup(b *benchmark, client kubernetes.Interface, extClient
 	}
 	b.SetRandomLabel(&policy.ObjectMeta)
 	_, err = client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicies().Create(ctx, &policy, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
 	binding, err := loadYAMLTestData[admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding]("enforcement/demo-policy-with-params.binding.yaml")
 	if err != nil {
 		return err
@@ -91,8 +127,8 @@ func policyEnforcementTeardown(b *benchmark, client kubernetes.Interface, extCli
 	ctx := context.Background()
 	_ = dynamicClient.Resource(paramGVR).Namespace(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: b.LabelSelector()})
 	_ = dynamicClient.Resource(objectGVR).Namespace(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: b.LabelSelector()})
-	_ = client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicies().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: b.LabelSelector()})
 	_ = client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicyBindings().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: b.LabelSelector()})
+	_ = client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicies().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: b.LabelSelector()})
 	_ = extClient.ApiextensionsV1().CustomResourceDefinitions().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: b.LabelSelector()})
 	return nil
 }

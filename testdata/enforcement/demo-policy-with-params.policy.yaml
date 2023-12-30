@@ -10,6 +10,7 @@ spec:
   failurePolicy: Fail
   paramKind:
     apiVersion: "policycreation.example.com/v1"
+    kind: Param
   matchConstraints:
     resourceRules:
     - apiGroups:   ["policycreation.example.com"]
@@ -18,11 +19,11 @@ spec:
       resources:   ["objects"]
   variables:
   - name: environment
-    expression: "'environment' in namespaceObject.metadata.labels ? namespaceObject.metadata.labels['environment'] : ''"
+    expression: "'environment' in object.metadata.labels ? object.metadata.labels['environment'] : ''"
   - name: exempt
     expression: "'exempt' in object.metadata.labels && object.metadata.labels['exempt'] == 'true'"
   - name: environmentAllowed
-    expression: "variables.exempt || variables.environment == params.allowedEnvironment"
+    expression: "variables.exempt || variables.environment == params.spec.allowedEnvironment"
   validations:
   - expression: "variables.environmentAllowed"
-    messageExpression: "'only ' + variables.environment + ' images are allowed in namespace ' + namespaceObject.metadata.name"
+    messageExpression: "'only ' + params.spec.allowedEnvironment + ' objects are allowed in namespace ' + namespaceObject.metadata.name"

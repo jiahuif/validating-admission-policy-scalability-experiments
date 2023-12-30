@@ -1,0 +1,8 @@
+apiVersion: policycreation.example.com/v1
+kind: Object
+metadata:
+  name: to-be-filled.policycreation.example.com
+  labels:
+    environment: prod
+spec:
+  replicas: 10

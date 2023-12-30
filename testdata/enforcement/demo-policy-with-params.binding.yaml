@@ -8,11 +8,11 @@ spec:
   paramRef:
     name: "demo-params.policycreation.example.com"
     namespace: "default"
-    parameterNotFoundAction: Allow
+    parameterNotFoundAction: Deny
   matchResources:
     namespaceSelector:
       matchExpressions:
-      - key: environment
+      - key: kubernetes.io/metadata.name
         operator: In
         values:
         - default

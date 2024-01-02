@@ -8,7 +8,7 @@ spec:
   paramRef:
     name: "demo-params.policycreation.example.com"
     namespace: "default"
-    parameterNotFoundAction: Deny
+    parameterNotFoundAction: Allow
   matchResources:
     namespaceSelector:
       matchExpressions:

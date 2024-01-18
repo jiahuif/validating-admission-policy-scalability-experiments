@@ -75,7 +75,7 @@ func testClient() (kubernetes.Interface, apiextensionsclientset.Interface, dynam
 	return client, extClient, dynamicClient, nil
 }
 
-func mustTestClient(t *testing.T) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface) {
+func mustTestClient(t testing.TB) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface) {
 	client, extClient, dynamicClient, err := testClient()
 	if err != nil {
 		t.Fatalf("fail to create client: %v", err)

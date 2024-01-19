@@ -48,3 +48,25 @@ func BenchmarkTypeChecking(b *testing.B) {
 	})
 
 }
+
+func BenchmarkTypeCheckingExpressions(b *testing.B) {
+	client, _, _ := mustTestClient(b)
+	r := &resolver.ClientDiscoveryResolver{Discovery: client.Discovery()}
+	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(client.Discovery()))
+	typeChecker := validatingadmissionpolicy.TypeChecker{
+		SchemaResolver: r,
+		RestMapper:     restMapper,
+	}
+	policy, err := loadYAMLTestData[admissionregistrationv1beta1.ValidatingAdmissionPolicy]("image-matches-namespace-environment.policy.yaml")
+	if err != nil {
+		b.Fatalf("fail to load test data: %v", err)
+	}
+	ctx := typeChecker.CreateContext(&policy)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		r := typeChecker.CheckExpression(ctx, "object.spec.replicas > 1 && object.spec.replicas % 2 == 1")
+		if len(r) > 0 {
+			b.Errorf("unexpected type checking warning: %v", r)
+		}
+	}
+}

@@ -14,16 +14,18 @@ import (
 func BenchmarkSchemaResolver(b *testing.B) {
 	client, _, _ := mustTestClient(b)
 	r := &resolver.ClientDiscoveryResolver{Discovery: client.Discovery()}
-	for i := 0; i < b.N; i++ {
-		deploymentGVK := appsv1.SchemeGroupVersion.WithKind("Deployment")
-		s, err := r.ResolveSchema(deploymentGVK)
-		if err != nil {
-			b.Errorf("fail to resolve schema: %v", err)
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			deploymentGVK := appsv1.SchemeGroupVersion.WithKind("Deployment")
+			s, err := r.ResolveSchema(deploymentGVK)
+			if err != nil {
+				b.Errorf("fail to resolve schema: %v", err)
+			}
+			if _, ok := s.Properties["spec"]; !ok {
+				b.Errorf("returned schema is missing Spec")
+			}
 		}
-		if _, ok := s.Properties["spec"]; !ok {
-			b.Errorf("returned schema is missing Spec")
-		}
-	}
+	})
 }
 
 func BenchmarkTypeChecking(b *testing.B) {
@@ -38,7 +40,11 @@ func BenchmarkTypeChecking(b *testing.B) {
 	if err != nil {
 		b.Fatalf("fail to load test data: %v", err)
 	}
-	for i := 0; i < b.N; i++ {
-		_ = typeChecker.Check(&policy)
-	}
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			_ = typeChecker.Check(&policy)
+		}
+	})
+
 }

@@ -6,5 +6,5 @@ RUN go test -c -o /test
 
 FROM gcr.io/distroless/base-nossl-debian12
 COPY --from=builder /test /bin/test
-ADD testdata /
+ADD testdata/ /testdata/
 ENTRYPOINT ["/bin/test", "-test.v"]
